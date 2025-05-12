@@ -1,0 +1,57 @@
+print	"*** Lammps simulation Input ***"
+
+print		"*** Variables ***"
+variable	T equal ##temp##
+variable	T_init equal 1000
+variable	P equal 1.0
+variable	dt equal 0.00025
+variable	Td equal 100.0*dt
+variable	Pd equal 1000.0*dt
+
+print		"*** Problem Setting***"
+units		metal
+boundary	p p p
+newton off
+
+print		"*** Force field information ***"
+atom_style	full
+read_data       /SM_SCWOAA/MD/Initial_structure/init.1000.50.100
+mass		1	15.9994
+mass		2	1.008
+mass		3	12.001
+
+pair_style nequip
+pair_coeff * * /SM_SCWOAA/MD/forcefields/seed2.pth O H C
+
+
+neighbor	2.0 bin
+neigh_modify		every 1 delay 0 check yes
+
+velocity	all create ${T_init} 355012 rot yes mom yes dist gaussian
+
+group	water type 1 2
+
+thermo_style	custom step temp density press
+thermo		100
+
+
+print 	" *** set supercritical fluid configurations *** "
+fix NVTeq1 all nvt temp ${T_init} ${T_init} ${Td}
+dump dump_init all custom 40 dump.init.dense.lammpstrj id type mol x y z xu yu zu vx vy vz
+run 	40000 
+
+write_data		data.eq
+undump dump_init
+
+print		"*** NVT Production ***"
+reset_timestep	0
+
+velocity	all create ${T} 355012 rot yes mom yes dist gaussian
+unfix NVTeq1
+fix NVTeq all nvt temp $T $T ${Td}
+dump dump1 all custom 4000 dump.lammpstrj id type mol x y z xu yu zu vx vy vz 
+dump dump2 all custom 40 dump.dense.lammpstrj id type mol x y z xu yu zu vx vy vz 
+run 	400000
+write_data		data.final
+
+
